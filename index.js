@@ -1,16 +1,13 @@
-import * as THREE from 'three';
-import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/PointerLockControls.js';
 
 let scene, camera, renderer, controls;
 let beds = {};
-let players = {};
 let currentPlayer = { team: null, respawn: true };
 
-// Teams
 const TEAMS = ["red", "blue", "green", "yellow"];
 let teamIndex = 0;
 
-// Block + bed size
 const BLOCK_SIZE = 1;
 const blockGeometry = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
 const blockMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa });
@@ -35,7 +32,7 @@ function init() {
     controls = new PointerLockControls(camera, document.body);
     document.body.addEventListener('click', () => controls.lock());
 
-    // Lighting
+    // Lights
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
     hemiLight.position.set(0, 20, 0);
     scene.add(hemiLight);
@@ -51,17 +48,17 @@ function init() {
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
 
-    // Assign player to a team
+    // Assign team
     currentPlayer.team = TEAMS[teamIndex % TEAMS.length];
     teamIndex++;
 
-    // Add beds for all teams
+    // Add beds
     addBed("red", -20, 0.25, 0, 0xff0000);
     addBed("blue", 20, 0.25, 0, 0x0000ff);
     addBed("green", 0, 0.25, -20, 0x00ff00);
     addBed("yellow", 0, 0.25, 20, 0xffff00);
 
-    // Listen for block actions
+    // Block actions
     window.addEventListener('mousedown', onMouseDown);
 
     window.addEventListener('resize', () => {
@@ -71,7 +68,6 @@ function init() {
     });
 }
 
-// Add a bed
 function addBed(team, x, y, z, color) {
     const bed = new THREE.Mesh(bedGeometry, new THREE.MeshStandardMaterial({ color }));
     bed.position.set(x, y, z);
@@ -80,7 +76,6 @@ function addBed(team, x, y, z, color) {
     beds[team] = bed;
 }
 
-// Respawn player
 function respawnPlayer() {
     const bed = beds[currentPlayer.team];
     if (bed) {
@@ -93,7 +88,6 @@ function respawnPlayer() {
     }
 }
 
-// Handle mouse clicks
 function onMouseDown() {
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
