@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Bed Wars Multiplayer</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="hud">
+    <input id="nameInput" placeholder="Your name" />
+    <button id="joinBtn">Join Game</button>
+    <button id="shopBtn">Shop (Chests)</button>
+    <button id="restartBtn">Request Restart</button>
+    <div id="inventory" class="hidden">
+      <div class="chest">
+        <div class="chest-grid" id="chestGrid"></div>
+        <button id="closeChest">Close</button>
+      </div>
+    </div>
+    <div id="info">
+      <div id="teamInfo">Team: -</div>
+      <div id="healthInfo">Health: -</div>
+      <div id="resInfo">Resources: -</div>
+    </div>
+  </div>
+  <canvas id="c"></canvas>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="client.js"></script>
+</body>
+</html>
