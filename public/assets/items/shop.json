@@ -1,0 +1,9 @@
+{
+  "items": [
+    { "name": "Sword", "cost": 10, "type": "weapon" },
+    { "name": "Bow", "cost": 15, "type": "weapon" },
+    { "name": "Arrow", "cost": 2, "type": "ammo" },
+    { "name": "Block", "cost": 1, "type": "block" },
+    { "name": "Armor", "cost": 20, "type": "armor" }
+  ]
+}

@@ -1,0 +1,3 @@
+body { margin: 0; overflow: hidden; }
+#ui { position: absolute; top: 10px; left: 10px; color: white; }
+canvas { display: block; background: #87CEEB; }
