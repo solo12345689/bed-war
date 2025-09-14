@@ -1,56 +1,167 @@
-const express = require('express');
+// server.js
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const path = require("path");
+
 const app = express();
-const http = require('http').createServer(app);
-const io = require('socket.io')(http);
+const server = http.createServer(app);
+const io = new Server(server);
 
-app.use(express.static('public'));
+// Serve static files
+app.use(express.static(path.join(__dirname, "public")));
 
-// Game state (players, teams, beds, blocks)
+// ------------------------------
+// Game State
+// ------------------------------
 let players = {};
-let blocks = [];
-let beds = {};
-let projectiles = [];
-let teams = ['red', 'blue', 'green', 'yellow'];
+let teams = ["red", "blue", "green", "yellow"];
+let beds = {
+  red: true,
+  blue: true,
+  green: true,
+  yellow: true
+};
+let blocks = []; // placed blocks
 
-io.on('connection', (socket) => {
-    console.log('Player connected', socket.id);
+// Utility: auto-assign teams evenly
+function assignTeam() {
+  let counts = {};
+  teams.forEach(t => counts[t] = 0);
 
-    // Assign team
-    let team = teams[Object.keys(players).length % teams.length];
-    players[socket.id] = { id: socket.id, team, x: 0, y: 0, inventory: [] };
+  Object.values(players).forEach(p => {
+    if (counts[p.team] !== undefined) counts[p.team]++;
+  });
 
-    socket.emit('init', { id: socket.id, players, blocks, beds, team });
+  return Object.entries(counts).sort((a,b)=>a[1]-b[1])[0][0];
+}
 
-    io.emit('player-join', players[socket.id]);
+// Reset game state (new match)
+function resetGame() {
+  players = {};
+  beds = { red:true, blue:true, green:true, yellow:true };
+  blocks = [];
+  io.emit("gameReset", { beds, blocks });
+}
 
-    // Handle actions
-    socket.on('place-block', (data) => {
-        blocks.push(data);
-        io.emit('block-placed', data);
-    });
+// ------------------------------
+// Socket.io
+// ------------------------------
+io.on("connection", (socket) => {
+  console.log(`🔌 Player connected: ${socket.id}`);
 
-    socket.on('break-block', (pos) => {
-        blocks = blocks.filter(b => !(b.x === pos.x && b.y === pos.y));
-        io.emit('block-broken', pos);
-    });
+  // Assign team
+  let team = assignTeam();
+  players[socket.id] = {
+    id: socket.id,
+    team,
+    alive: true,
+    x: 0, y: 0
+  };
 
-    socket.on('buy-item', (item) => {
-        // Server validation placeholder
-        players[socket.id].inventory.push(item);
-        io.emit('item-bought', { id: socket.id, item });
-    });
+  socket.emit("init", {
+    id: socket.id,
+    players,
+    team,
+    beds,
+    blocks
+  });
 
-    socket.on('shoot-arrow', (arrow) => {
-        projectiles.push(arrow);
-        io.emit('arrow-shot', arrow);
-    });
+  io.emit("playerJoined", players[socket.id]);
 
-    socket.on('disconnect', () => {
-        delete players[socket.id];
-        io.emit('player-leave', socket.id);
-    });
+  // -------------------------
+  // Player movement sync
+  // -------------------------
+  socket.on("move", (data) => {
+    if (!players[socket.id]) return;
+    players[socket.id].x = data.x;
+    players[socket.id].y = data.y;
+    io.emit("playerMoved", players[socket.id]);
+  });
+
+  // -------------------------
+  // Block placing
+  // -------------------------
+  socket.on("placeBlock", (data) => {
+    if (!players[socket.id]) return;
+
+    // Server-side validation
+    if (typeof data.x !== "number" || typeof data.y !== "number") return;
+
+    blocks.push({ x: data.x, y: data.y, team: players[socket.id].team });
+    io.emit("blockPlaced", { x: data.x, y: data.y, team: players[socket.id].team });
+  });
+
+  // -------------------------
+  // Bed breaking
+  // -------------------------
+  socket.on("breakBed", (team) => {
+    let player = players[socket.id];
+    if (!player) return;
+
+    // Prevent breaking own bed
+    if (player.team === team) return;
+
+    if (beds[team]) {
+      beds[team] = false;
+      io.emit("bedBroken", { team });
+
+      // Check win condition
+      let aliveBeds = Object.entries(beds).filter(([t, alive]) => alive);
+      if (aliveBeds.length === 1) {
+        let winner = aliveBeds[0][0];
+        io.emit("gameOver", { winner });
+        setTimeout(resetGame, 8000); // restart after 8s
+      }
+    }
+  });
+
+  // -------------------------
+  // Player death/respawn
+  // -------------------------
+  socket.on("playerDied", () => {
+    let player = players[socket.id];
+    if (!player) return;
+
+    if (beds[player.team]) {
+      // respawn
+      player.alive = true;
+      io.emit("playerRespawn", player);
+    } else {
+      // out of game
+      player.alive = false;
+      io.emit("playerEliminated", player);
+    }
+  });
+
+  // -------------------------
+  // Damage (no friendly fire)
+  // -------------------------
+  socket.on("damagePlayer", (targetId) => {
+    let attacker = players[socket.id];
+    let target = players[targetId];
+    if (!attacker || !target) return;
+
+    // Prevent friendly fire
+    if (attacker.team === target.team) return;
+
+    io.emit("playerDamaged", { targetId, by: socket.id });
+  });
+
+  // -------------------------
+  // Disconnect
+  // -------------------------
+  socket.on("disconnect", () => {
+    console.log(`❌ Player left: ${socket.id}`);
+    delete players[socket.id];
+    io.emit("playerLeft", socket.id);
+  });
 });
 
-http.listen(10000, () => {
-    console.log('Server running on port 10000');
+// ------------------------------
+// Start Server
+// ------------------------------
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`✅ BedWars server running on port ${PORT}`);
 });
